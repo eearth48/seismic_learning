@@ -3,7 +3,7 @@
 
 Aplikasi WebGIS interaktif berbasis Leaflet.js untuk memvisualisasikan data kegempaan *real-time*, batas lempeng tektonik regional, sebaran sesar/patahan aktif darat, dan status aktivitas gunung api di seluruh wilayah Indonesia.
 
-🔗 **Live Demo:** [https://marseventz48.github.io/seismic_learning/](https://marseventz48.github.io/seismic_learning/)
+🔗 **Live Demo:** [https://eearth48.github.io/seismic_learning/](https://eearth48.github.io/seismic_learning/)](https://eearth48.github.io/seismic_learning/)
 
 ---
 
