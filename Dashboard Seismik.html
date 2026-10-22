@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pusat Informasi Seismik & Geologi Indonesia</title>
+
+    <!-- CSS Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+    <style> 
+        /* 1. Pengaturan Dasar Halaman */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* 2. Tombol Zoom Leaflet Gelap */
+        .leaflet-control-zoom {
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            border-radius: 8px !important;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+        }
+        .leaflet-control-zoom a {
+            background-color: rgba(33, 37, 41, 0.94) !important;
+            color: #ffffff !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+        }
+        .leaflet-control-zoom a:hover {
+            background-color: #343a40 !important;
+            color: #f1c40f !important;
+        }
+
+        /* 3. Tombol Pembuka Sidebar Melayang */
+        .btn-toggle-sidebar {
+            position: absolute;
+            top: 86px;
+            left: 10px;
+            width: 32px;
+            height: 32px;
+            background: rgba(33, 37, 41, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            font-size: 15px;
+        }
+        .btn-toggle-sidebar:hover {
+            background: #343a40;
+            color: #f1c40f;
+            border-color: #f1c40f;
+            transform: scale(1.05);
+        }
+
+        /* 4. Top Bar Kapsul (Legenda, Sakelar Layer & Basemap) */
+        .top-navbar-control {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(33, 37, 41, 0.94);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 30px;
+            padding: 5px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            font-size: 11px;
+            color: #dee2e6;
+            white-space: nowrap;
+            user-select: none;
+            max-width: 90vw;
+            overflow-x: auto;
+        }
+
+        .layer-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .layer-toggle-btn:hover { background: rgba(255, 255, 255, 0.12); }
+        .layer-toggle-btn.active {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+        }
+        .layer-toggle-btn.inactive {
+            opacity: 0.35;
+            filter: grayscale(1);
+        }
+
+        .btn-basemap-switch {
+            background: rgba(241, 196, 15, 0.12);
+            border: 1px solid #f1c40f;
+            color: #f1c40f;
+            font-weight: 500;
+        }
+        .btn-basemap-switch:hover {
+            background: rgba(241, 196, 15, 0.25);
+            box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
+
+        /* 5. Panel Melayang Adaptif */
+        .floating-sidebar {
+            position: absolute;
+            top: 14px;
+            left: 55px;
+            width: 320px;
+            height: auto;
+            max-height: calc(100vh - 28px);
+            background: rgba(33, 37, 41, 0.94);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        }
+
+        .floating-sidebar.hidden {
+            transform: translateX(-400px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .header-top h2 { margin: 0; font-size: 15px; letter-spacing: 0.5px; }
+        
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .header-meta p { margin: 0; font-size: 11px; color: #adb5bd; }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9.5px;
+            font-weight: 500;
+            color: #2ecc71;
+            background: rgba(46, 204, 113, 0.15);
+            padding: 2px 7px;
+            border-radius: 12px;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+        }
+        .live-dot {
+            width: 5px;
+            height: 5px;
+            background-color: #2ecc71;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 5px #2ecc71;
+            flex-shrink: 0;
+        }
+        .live-indicator.error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.15);
+        }
+        .live-indicator.error .live-dot {
+            background-color: #e74c3c;
+            box-shadow: 0 0 5px #e74c3c;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-action-sm {
+            background: #2b3035;
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 4px 7px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .btn-action-sm:hover {
+            background: #343a40;
+            color: #f1c40f;
+            border-color: #f1c40f;
+        }
+
+        /* 6. Kartu KPI Angka */
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .card {
+            padding: 10px;
+            border-radius: 6px;
+            background: rgba(43, 48, 53, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .card.alert { border-left: 3px solid #e74c3c; }
+        .card.warning { border-left: 3px solid #f39c12; }
+        .card-label { font-size: 10px; opacity: 0.8; text-transform: uppercase; display: block; }
+        .card h3 { margin: 4px 0 0; font-size: 20px; }
+
+        /* 7. Infografis Status Gunung (Badge) */
+        .status-gunung-bar {
+            display: flex;
+            gap: 4px;
+            background: rgba(43, 48, 53, 0.6);
+            padding: 6px;
+            border-radius: 6px;
+            justify-content: space-between;
+            font-size: 10px;
+            text-align: center;
+        }
+        .badge-status {
+            flex: 1;
+            padding: 5px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .badge-status:hover { transform: translateY(-2px); filter: brightness(1.2); }
+        .badge-status.active { outline: 2px solid #ffffff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.4); }
+        .badge-status.awas { background: rgba(231, 76, 60, 0.25); color: #e74c3c; font-weight: bold; }
+        .badge-status.siaga { background: rgba(230, 126, 34, 0.25); color: #e67e22; font-weight: bold; }
+        .badge-status.waspada { background: rgba(241, 196, 15, 0.25); color: #f1c40f; font-weight: bold; }
+        .badge-status.normal { background: rgba(46, 204, 113, 0.25); color: #2ecc71; font-weight: bold; }
+
+        /* 8. Munculan List Gunung */
+        #container-list-gunung { display: none; margin-top: 6px; }
+        #container-list-gunung h5 {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #adb5bd;
+            display: flex;
+            justify-content: space-between;
+        }
+        #container-list-gunung h5 span#btn-reset-gunung { color: #f1c40f; cursor: pointer; text-transform: none; }
+        #container-list-gunung h5 span#btn-reset-gunung:hover { text-decoration: underline; }
+        #list-gunung {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 140px;
+            overflow-y: auto;
+        }
+        #list-gunung li {
+            background: rgba(43, 48, 53, 0.95);
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid #f1c40f;
+            transition: all 0.2s;
+        }
+        #list-gunung li:hover { background: rgba(60, 68, 75, 1); }
+        #list-gunung li.item-selected {
+            background: #3c444b;
+            border-left: 5px solid #ffffff !important;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+            transform: translateX(3px);
+        }
+
+        /* 9. List Gempa */
+        .feed-section {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .feed-section h4 {
+            margin: 0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #ced4da;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 6px;
+        }
+        .feed-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .feed-section li {
+            background: rgba(43, 48, 53, 0.85);
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1.4;
+            border-left: 3px solid #e74c3c;
+            transition: all 0.2s;
+        }
+        .feed-section li:hover { background: rgba(52, 58, 64, 1); transform: translateX(2px); }
+        .feed-section li.item-selected {
+            background: #3c444b;
+            border-left: 5px solid #ffffff !important;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
+            transform: translateX(3px);
+        }
+
+        /* 10. Animasi Pulse Gelombang Gempa */
+        @keyframes pulse-ring {
+            0% { r: 8px; opacity: 0.9; stroke-width: 3px; }
+            100% { r: 26px; opacity: 0; stroke-width: 1px; }
+        }
+        .pulse-circle {
+            animation: pulse-ring 1.6s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            transform-origin: center;
+        }
+
+        /* 11. Skala Metrik Peta Leaflet */
+        .leaflet-control-scale-line {
+            background: rgba(33, 37, 41, 0.85) !important;
+            border: 2px solid rgba(255, 255, 255, 0.4) !important;
+            border-top: none !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            line-height: 1.2 !important;
+            padding: 2px 6px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        /* 12. Utility & Popup */
+        .custom-gunung-halo, .custom-gempa-pulse { background: transparent !important; border: none !important; }
+        .leaflet-popup-content-wrapper { background-color: #212529; color: #ffffff; border-radius: 8px; }
+        .leaflet-popup-tip { background-color: #212529; }
+
+        /* 13. Responsivitas Layar Ponsel (<600px) */
+        @media (max-width: 600px) {
+            .top-navbar-control {
+                width: 92vw;
+                justify-content: flex-start;
+                padding: 4px 8px;
+            }
+            .floating-sidebar {
+                left: 10px;
+                right: 10px;
+                width: auto;
+                top: 60px;
+                max-height: 75vh;
+            }
+            .btn-toggle-sidebar {
+                top: auto;
+                bottom: 25px;
+                left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Kanvas Peta -->
+    <div id="map"></div>
+
+    <!-- TOMBOL BUKA-TUTUP SIDEBAR -->
+    <button class="btn-toggle-sidebar" id="btnToggleSidebar" title="Tampilkan / Sembunyikan Panel Informasi">
+        📊
+    </button>
+
+    <!-- TOP BAR KAPSUL (LEGENDA, SAKELAR & BASEMAP) -->
+    <div class="top-navbar-control" id="topNavControl">
+        <!-- Sakelar Ganti Basemap -->
+        <div class="layer-toggle-btn btn-basemap-switch" id="btnToggleBasemap" title="Klik untuk beralih ke Citra Satelit">
+            <span>🛰️ Satelit</span>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Sakelar Lempeng Tektonik (Garis Tebal Merah) -->
+        <div class="layer-toggle-btn active" id="toggle-lempeng">
+            <svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="#e74c3c" stroke-width="2.5" /></svg>
+            <span>Lempeng</span>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Sakelar Sesar / Patahan Aktif Daratan (Garis Putus-Putus Oranye) -->
+        <div class="layer-toggle-btn active" id="toggle-sesar">
+            <svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#ff793f" stroke-width="2" stroke-dasharray="4,3" /></svg>
+            <span>Sesar Aktif</span>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Sakelar Gempa -->
+        <div class="layer-toggle-btn active" id="toggle-gempa">
+            <svg width="14" height="14">
+                <circle cx="7" cy="7" r="5" fill="#e74c3c" stroke="#922b21" stroke-width="1.5" />
+            </svg>
+            <span>Gempa</span>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Sakelar Gunung Api -->
+        <div class="layer-toggle-btn active" id="toggle-gunung">
+            <svg width="18" height="18" viewBox="0 0 28 28" style="display:block; overflow:visible;">
+                <circle cx="14" cy="14" r="11" fill="#e67e22" fill-opacity="0.35" />
+                <circle cx="14" cy="14" r="8" fill="#e67e22" fill-opacity="0.6" stroke="#e67e22" stroke-width="1.5" />
+                <polygon points="14,6 20,20 8,20" fill="#111111" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" />
+            </svg>
+            <span>Gunung Api</span>
+        </div>
+    </div>
+
+    <!-- PANEL MELAYANG KIRI ATAS -->
+    <div class="floating-sidebar" id="floatingSidebar">
+        <div class="header-top">
+            <div>
+                <h2>Pusat Informasi Seismik</h2>
+                <div class="header-meta">
+                    <p id="jam-realtime">--:--:--</p>
+                    <span class="live-indicator" id="bmkgLiveBadge">
+                        <span class="live-dot"></span> <span id="bmkgLiveText">BMKG Terhubung</span>
+                    </span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn-action-sm" id="btn-reset-view" title="Kembalikan ke Tampilan Awal">
+                    🔄 Reset
+                </button>
+                <button class="btn-action-sm" id="btn-close-sidebar" title="Tutup Panel">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- Kartu KPI Angka -->
+        <div class="card-grid">
+            <div class="card alert">
+                <span class="card-label">Gempa M ≥ 5.0</span>
+                <h3 id="stat-total-gempa">0</h3>
+            </div>
+            <div class="card warning">
+                <span class="card-label">Siaga / Awas</span>
+                <h3 id="stat-gunung-aktif">0</h3>
+            </div>
+        </div>
+
+        <!-- Filter Status Gunung -->
+        <div>
+            <span class="card-label" style="margin-bottom: 4px;">Status Gunung Api (Klik untuk Filter)</span>
+            <div class="status-gunung-bar">
+                <div class="badge-status awas" data-status="Awas">Awas: <span id="count-awas">0</span></div>
+                <div class="badge-status siaga" data-status="Siaga">Siaga: <span id="count-siaga">0</span></div>
+                <div class="badge-status waspada" data-status="Waspada">Waspada: <span id="count-waspada">0</span></div>
+                <div class="badge-status normal" data-status="Normal">Normal: <span id="count-normal">0</span></div>
+            </div>
+
+            <!-- List Hasil Filter Gunung -->
+            <div id="container-list-gunung">
+                <h5>
+                    <span id="judul-list-gunung">Daftar Gunung</span>
+                    <span id="btn-reset-gunung">Tampilkan Semua</span>
+                </h5>
+                <ul id="list-gunung"></ul>
+            </div>
+        </div>
+
+        <!-- Daftar Gempa BMKG -->
+        <div class="feed-section">
+            <h4>Gempa Terkini (Klik untuk Zoom)</h4>
+            <ul id="list-gempa"></ul>
+        </div>
+    </div>
+
+    <!-- Library Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="">
+    </script>
+
+    <script>
+    // ==========================================
+    // 1. INISIALISASI PETA & BASEMAP
+    // ==========================================
+    var DEFAULT_CENTER = [-0.7893, 118.9213];
+    var DEFAULT_ZOOM = 5;
+
+    var map = L.map('map', {
+        zoomControl: true
+    }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+
+    // Skala Peta Metrik Grafis
+    L.control.scale({
+        metric: true,
+        imperial: false,
+        position: 'bottomright'
+    }).addTo(map);
+
+    // Dua Pilihan Basemap
+    var basemapCarto = L.tileLayer('https://tile.openstreetmap.bzh/ca/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var basemapSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 18,
+        attribution: 'Tiles &copy; Esri'
+    });
+
+    var labelLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16
+    }).addTo(map);
+
+    // Logika Sakelar Basemap
+    var isSatelliteActive = false;
+    var btnBasemap = document.getElementById('btnToggleBasemap');
+    btnBasemap.onclick = function() {
+        if (!isSatelliteActive) {
+            map.removeLayer(basemapCarto);
+            basemapSatellite.addTo(map);
+            labelLayer.bringToFront();
+            btnBasemap.innerHTML = '<span>🗺️ Kartografi</span>';
+            btnBasemap.classList.add('active');
+            isSatelliteActive = true;
+        } else {
+            map.removeLayer(basemapSatellite);
+            basemapCarto.addTo(map);
+            labelLayer.bringToFront();
+            btnBasemap.innerHTML = '<span>🛰️ Satelit</span>';
+            btnBasemap.classList.remove('active');
+            isSatelliteActive = false;
+        }
+    };
+
+    // Mencegah interaksi scroll & klik di elemen kontrol tembus ke peta
+    var sidebarEl = document.getElementById('floatingSidebar');
+    var navControlEl = document.getElementById('topNavControl');
+    var btnToggleEl = document.getElementById('btnToggleSidebar');
+
+    L.DomEvent.disableClickPropagation(sidebarEl);
+    L.DomEvent.disableScrollPropagation(sidebarEl);
+    L.DomEvent.disableClickPropagation(navControlEl);
+    L.DomEvent.disableClickPropagation(btnToggleEl);
+
+    function toggleSidebar() {
+        sidebarEl.classList.toggle('hidden');
+    }
+    btnToggleEl.onclick = toggleSidebar;
+    document.getElementById('btn-close-sidebar').onclick = toggleSidebar;
+
+    var selectedGunungId = null;
+    var selectedGempaId = null;
+
+    function resetMapView() {
+        map.closePopup();
+        map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 1.2 });
+        document.querySelectorAll('#list-gunung li').forEach(el => el.classList.remove('item-selected'));
+        document.querySelectorAll('#list-gempa li').forEach(el => el.classList.remove('item-selected'));
+        selectedGunungId = null;
+        selectedGempaId = null;
+    }
+
+    document.getElementById('btn-reset-view').onclick = resetMapView;
+
+    // ==========================================
+    // 2. WADAH LAYERGROUP & SAKELAR ON/OFF
+    // ==========================================
+    var layerLempeng = L.layerGroup().addTo(map);
+    var layerSesar = L.layerGroup().addTo(map);
+    var layerGempa = L.layerGroup().addTo(map);
+    var layerGunungApi = L.layerGroup().addTo(map);
+
+    function setupLayerToggle(btnId, layer) {
+        var btn = document.getElementById(btnId);
+        btn.onclick = function() {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                btn.classList.remove('active');
+                btn.classList.add('inactive');
+            } else {
+                map.addLayer(layer);
+                btn.classList.add('active');
+                btn.classList.remove('inactive');
+            }
+        };
+    }
+
+    setupLayerToggle('toggle-lempeng', layerLempeng);
+    setupLayerToggle('toggle-sesar', layerSesar);
+    setupLayerToggle('toggle-gempa', layerGempa);
+    setupLayerToggle('toggle-gunung', layerGunungApi);
+
+    // Jam Real-time
+    setInterval(function() {
+        var now = new Date();
+        document.getElementById('jam-realtime').innerText = now.toLocaleDateString('id-ID', {
+            weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+    }, 1000);
+
+    // ==========================================
+    // 3. LAYER BATAS LEMPENG TEKTONIK (REGIONAL)
+    // ==========================================
+    fetch('https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json')
+    .then(res => res.json())
+    .then(data => {
+        L.geoJSON(data, {
+            style: { color: '#e74c3c', weight: 2.2, opacity: 0.85 },
+            onEachFeature: function(feature, layer) {
+                if (feature.properties && feature.properties.Name) {
+                    layer.bindPopup("<b>Batas Lempeng Tektonik</b><br>Kode: " + feature.properties.Name);
+                }
+            }
+        }).addTo(layerLempeng);
+    })
+    .catch(err => console.error("Gagal memuat lempeng:", err));
+
+    // ==========================================
+    // 4. LAYER SESAR / PATAHAN AKTIF DARATAN INDONESIA (PUSGEN)
+    // ==========================================
+    fetch('https://raw.githubusercontent.com/GEMScienceTools/cwb-fault-geometries/master/data/indonesia/indonesia_faults.geojson')
+    .then(res => {
+        if (!res.ok) throw new Error("Gagal mengambil data sesar");
+        return res.json();
+    })
+    .then(data => {
+        L.geoJSON(data, {
+            style: {
+                color: '#ff793f',          // Oranye terang mencolok di atas daratan
+                weight: 1.8,
+                dashArray: '5, 5',         // Garis putus-putus khas patahan geologi
+                opacity: 0.9
+            },
+            onEachFeature: function(feature, layer) {
+                var props = feature.properties || {};
+                var namaSesar = props.fault_name || props.NAME || props.Name || "Segmen Sesar Aktif";
+                var tipeSesar = props.slip_type || props.type || "Patahan / Sesar Darat";
+                layer.bindPopup(
+                    "<b style='color:#ff793f;'>⚡ " + namaSesar + "</b><br>" +
+                    "<b>Tipe:</b> " + tipeSesar + "<br>" +
+                    "<b>Sumber:</b> Pusgen / Peta Bahaya Gempa Indonesia"
+                );
+            }
+        }).addTo(layerSesar);
+    })
+    .catch(err => {
+        console.warn("Gagal memuat sesar utama, memuat cadangan:", err);
+        // Cadangan jalur sesar darat utama jika repositori utama offline
+        var sesarUtama = {
+            "type": "FeatureCollection",
+            "features": [
+                { "type": "Feature", "properties": { "fault_name": "Sesar Besar Sumatera (Semangko)" }, "geometry": { "type": "LineString", "coordinates": [[95.3, 5.5], [97.0, 3.8], [99.0, 1.5], [101.5, -1.8], [104.5, -5.5]] } },
+                { "type": "Feature", "properties": { "fault_name": "Sesar Palu-Koro (Sulawesi)" }, "geometry": { "type": "LineString", "coordinates": [[119.8, -0.8], [120.2, -1.5], [121.2, -2.8]] } },
+                { "type": "Feature", "properties": { "fault_name": "Sesar Lembang (Jawa Barat)" }, "geometry": { "type": "LineString", "coordinates": [[107.5, -6.8], [107.7, -6.82]] } },
+                { "type": "Feature", "properties": { "fault_name": "Sesar Opak (Yogyakarta)" }, "geometry": { "type": "LineString", "coordinates": [[110.3, -8.0], [110.5, -7.7]] } }
+            ]
+        };
+        L.geoJSON(sesarUtama, {
+            style: { color: '#ff793f', weight: 2, dashArray: '5, 5', opacity: 0.9 },
+            onEachFeature: function(f, l) {
+                l.bindPopup("<b style='color:#ff793f;'>⚡ " + f.properties.fault_name + "</b><br>Jalur Sesar Aktif Darat");
+            }
+        }).addTo(layerSesar);
+    });
+
+    // ==========================================
+    // 5. DATA & FUNGSI GUNUNG API (DENGAN REVERSE TRIGGER)
+    // ==========================================
+    var dataGunungApi = [
+        { id: "g1", nama: "G. Anak Krakatau", lat: -6.102, lng: 105.423, status: "Siaga (Level III)", tinggi: "157 mdpl" },
+        { id: "g2", nama: "G. Merapi", lat: -7.540, lng: 110.446, status: "Siaga (Level III)", tinggi: "2.968 mdpl" },
+        { id: "g3", nama: "G. Semeru", lat: -8.108, lng: 112.922, status: "Waspada (Level II)", tinggi: "3.676 mdpl" },
+        { id: "g4", nama: "G. Sinabung", lat: 3.170, lng: 98.392, status: "Waspada (Level II)", tinggi: "2.460 mdpl" },
+        { id: "g5", nama: "G. Marapi (Sumbar)", lat: -0.381, lng: 100.473, status: "Siaga (Level III)", tinggi: "2.891 mdpl" },
+        { id: "g6", nama: "G. Kelud", lat: -7.930, lng: 112.308, status: "Normal (Level I)", tinggi: "1.731 mdpl" },
+        { id: "g7", nama: "G. Bromo", lat: -7.942, lng: 112.953, status: "Waspada (Level II)", tinggi: "2.329 mdpl" },
+        { id: "g8", nama: "G. Agung (Bali)", lat: -8.343, lng: 115.508, status: "Normal (Level I)", tinggi: "3.142 mdpl" },
+        { id: "g9", nama: "G. Rinjani (Lombok)", lat: -8.420, lng: 116.470, status: "Normal (Level I)", tinggi: "3.726 mdpl" },
+        { id: "g10", nama: "G. Lewotobi Laki-laki", lat: -8.538, lng: 122.768, status: "Awas (Level IV)", tinggi: "1.584 mdpl" },
+        { id: "g11", nama: "G. Dukono (Maluku)", lat: 1.693, lng: 127.894, status: "Waspada (Level II)", tinggi: "1.229 mdpl" },
+        { id: "g12", nama: "G. Ibu (Halmahera)", lat: 1.488, lng: 127.633, status: "Siaga (Level III)", tinggi: "1.325 mdpl" }
+    ];
+
+    var awasCount = dataGunungApi.filter(g => g.status.includes('Awas')).length;
+    var siagaCount = dataGunungApi.filter(g => g.status.includes('Siaga')).length;
+    var waspadaCount = dataGunungApi.filter(g => g.status.includes('Waspada')).length;
+    var normalCount = dataGunungApi.filter(g => g.status.includes('Normal')).length;
+
+    document.getElementById('count-awas').innerText = awasCount;
+    document.getElementById('count-siaga').innerText = siagaCount;
+    document.getElementById('count-waspada').innerText = waspadaCount;
+    document.getElementById('count-normal').innerText = normalCount;
+    document.getElementById('stat-gunung-aktif').innerText = awasCount + siagaCount;
+
+    function getWarnaStatus(status) {
+        if (status.includes("Awas")) return "#e74c3c";
+        if (status.includes("Siaga")) return "#e67e22";
+        if (status.includes("Waspada")) return "#f1c40f";
+        return "#2ecc71";
+    }
+
+    var statusGunungAktif = "Semua";
+
+    function renderGunung(statusFilter) {
+        layerGunungApi.clearLayers();
+        statusGunungAktif = statusFilter;
+        selectedGunungId = null;
+
+        var filteredData = (statusFilter === "Semua") 
+            ? dataGunungApi 
+            : dataGunungApi.filter(g => g.status.includes(statusFilter));
+
+        var containerList = document.getElementById('container-list-gunung');
+        var listEl = document.getElementById('list-gunung');
+        var judulList = document.getElementById('judul-list-gunung');
+        
+        if (listEl) listEl.innerHTML = '';
+
+        if (statusFilter !== "Semua") {
+            containerList.style.display = 'block';
+            judulList.innerText = `Daftar Gunung (${statusFilter})`;
+        } else {
+            containerList.style.display = 'none';
+        }
+
+        document.querySelectorAll('.badge-status').forEach(b => {
+            if (b.getAttribute('data-status') === statusFilter) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+
+        filteredData.forEach(gunung => {
+            var warnaHalo = getWarnaStatus(gunung.status);
+            var ikonHaloSegitiga = L.divIcon({
+                className: 'custom-gunung-halo',
+                html: `
+                    <svg width="26" height="26" viewBox="0 0 28 28" style="display:block; overflow:visible;">
+                        <circle cx="14" cy="14" r="13" fill="${warnaHalo}" fill-opacity="0.3" />
+                        <circle cx="14" cy="14" r="9" fill="${warnaHalo}" fill-opacity="0.6" stroke="${warnaHalo}" stroke-width="1.5" />
+                        <polygon points="14,6 20,20 8,20" fill="#111111" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" />
+                    </svg>
+                `,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13],
+                popupAnchor: [0, -13]
+            });
+
+            var markerGunung = L.marker([gunung.lat, gunung.lng], { icon: ikonHaloSegitiga });
+            markerGunung.bindPopup(
+                "<b>🌋 " + gunung.nama + "</b><br>" +
+                "<b>Tinggi:</b> " + gunung.tinggi + "<br>" +
+                "<b>Status:</b> <span style='font-weight:bold; color:" + warnaHalo + ";'>" + gunung.status + "</span>"
+            );
+            markerGunung.addTo(layerGunungApi);
+
+            // Interaksi Dua Arah: Klik Marker di Peta -> Sorot Item di List Sidebar
+            markerGunung.on('click', function() {
+                sidebarEl.classList.remove('hidden');
+                if (statusGunungAktif !== "Semua") {
+                    var targetLi = document.getElementById('li-' + gunung.id);
+                    if (targetLi) {
+                        document.querySelectorAll('#list-gunung li').forEach(el => el.classList.remove('item-selected'));
+                        document.querySelectorAll('#list-gempa li').forEach(el => el.classList.remove('item-selected'));
+                        targetLi.classList.add('item-selected');
+                        targetLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }
+            });
+
+            if (statusFilter !== "Semua" && listEl) {
+                var li = document.createElement('li');
+                li.id = 'li-' + gunung.id;
+                li.style.borderLeftColor = warnaHalo;
+                li.innerHTML = `<span><b>${gunung.nama}</b></span> <small style="color:#adb5bd;">${gunung.tinggi}</small>`;
+                
+                li.onclick = function() {
+                    if (selectedGunungId === gunung.id) {
+                        resetMapView();
+                    } else {
+                        document.querySelectorAll('#list-gunung li').forEach(el => el.classList.remove('item-selected'));
+                        document.querySelectorAll('#list-gempa li').forEach(el => el.classList.remove('item-selected'));
+                        li.classList.add('item-selected');
+                        selectedGunungId = gunung.id;
+                        selectedGempaId = null;
+
+                        map.flyTo([gunung.lat, gunung.lng], 9, { duration: 1.2 });
+                        markerGunung.openPopup();
+                    }
+                };
+                listEl.appendChild(li);
+            }
+        });
+    }
+
+    renderGunung("Semua");
+
+    document.querySelectorAll('.badge-status').forEach(badge => {
+        badge.onclick = function() {
+            var statusTarget = this.getAttribute('data-status');
+            if (statusGunungAktif === statusTarget) {
+                renderGunung("Semua");
+                resetMapView();
+            } else {
+                renderGunung(statusTarget);
+            }
+        };
+    });
+
+    document.getElementById('btn-reset-gunung').onclick = function() {
+        renderGunung("Semua");
+        resetMapView();
+    };
+
+    // ==========================================
+    // 6. DATA GEMPA BMKG (PULSING + REVERSE TRIGGER)
+    // ==========================================
+    var rawDataGempa = [];
+
+    function renderGempa() {
+        layerGempa.clearLayers();
+        var listContainer = document.getElementById('list-gempa');
+        if (listContainer) listContainer.innerHTML = '';
+
+        document.getElementById('stat-total-gempa').innerText = rawDataGempa.length;
+
+        rawDataGempa.forEach((gempa, index) => {
+            var coords = gempa.Coordinates.split(',');
+            var lat = parseFloat(coords[0]);
+            var lng = parseFloat(coords[1]);
+            var gempaId = "gempa-" + index;
+            var isTerbaru = (index === 0);
+            var markerGempa;
+
+            if (isTerbaru) {
+                var pulsingIcon = L.divIcon({
+                    className: 'custom-gempa-pulse',
+                    html: `
+                        <svg width="60" height="60" viewBox="0 0 60 60" style="display:block; overflow:visible;">
+                            <circle class="pulse-circle" cx="30" cy="30" r="10" fill="none" stroke="#e74c3c" />
+                            <circle cx="30" cy="30" r="8" fill="#e74c3c" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    `,
+                    iconSize: [60, 60],
+                    iconAnchor: [30, 30],
+                    popupAnchor: [0, -20]
+                });
+                markerGempa = L.marker([lat, lng], { icon: pulsingIcon });
+            } else {
+                markerGempa = L.circleMarker([lat, lng], {
+                    radius: parseFloat(gempa.Magnitude) * 1.8,
+                    fillColor: '#e74c3c',
+                    color: '#922b21',
+                    weight: 1.5,
+                    fillOpacity: 0.85
+                });
+            }
+
+            markerGempa.bindPopup(
+                "<b>" + (isTerbaru ? "🚨 GEMPA PALING TERKINI (BMKG)" : "Gempa Terkini (BMKG)") + "</b><br>" +
+                "<b>Wilayah:</b> " + gempa.Wilayah + "<br>" +
+                "<b>Magnitudo:</b> " + gempa.Magnitude + " SR<br>" +
+                "<b>Kedalaman:</b> " + gempa.Kedalaman + "<br>" +
+                "<b>Waktu:</b> " + gempa.Tanggal + " " + gempa.Jam
+            );
+
+            markerGempa.addTo(layerGempa);
+
+            // Klik Marker di Peta -> Sorot Item di List Gempa
+            markerGempa.on('click', function() {
+                sidebarEl.classList.remove('hidden');
+                var targetLi = document.getElementById('li-' + gempaId);
+                if (targetLi) {
+                    document.querySelectorAll('#list-gempa li').forEach(el => el.classList.remove('item-selected'));
+                    document.querySelectorAll('#list-gunung li').forEach(el => el.classList.remove('item-selected'));
+                    targetLi.classList.add('item-selected');
+                    targetLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    selectedGempaId = gempaId;
+                }
+            });
+
+            if (listContainer) {
+                var item = document.createElement('li');
+                item.id = 'li-' + gempaId;
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>M ${gempa.Magnitude}</strong>
+                        ${isTerbaru ? '<span style="background:#e74c3c; color:#fff; font-size:9px; padding:2px 5px; border-radius:3px; font-weight:bold;">TERBARU</span>' : ''}
+                    </div>
+                    <span>${gempa.Wilayah}</span><br>
+                    <small style="color:#adb5bd;">${gempa.Tanggal} ${gempa.Jam}</small>
+                `;
+                
+                item.onclick = function() {
+                    if (selectedGempaId === gempaId) {
+                        resetMapView();
+                    } else {
+                        document.querySelectorAll('#list-gempa li').forEach(el => el.classList.remove('item-selected'));
+                        document.querySelectorAll('#list-gunung li').forEach(el => el.classList.remove('item-selected'));
+                        item.classList.add('item-selected');
+                        selectedGempaId = gempaId;
+                        selectedGunungId = null;
+
+                        map.flyTo([lat, lng], 8, { duration: 1.2 });
+                        markerGempa.openPopup();
+                    }
+                };
+                listContainer.appendChild(item);
+            }
+        });
+    }
+
+    // Mengambil Data BMKG & Mengatur Indikator Koneksi
+    var badgeEl = document.getElementById('bmkgLiveBadge');
+    var badgeTextEl = document.getElementById('bmkgLiveText');
+
+    fetch('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
+    .then(res => {
+        if (!res.ok) throw new Error("Status " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        rawDataGempa = data.Infogempa.gempa;
+        renderGempa();
+        badgeEl.classList.remove('error');
+        badgeTextEl.innerText = 'BMKG Terhubung';
+    })
+    .catch(err => {
+        console.error("Gagal BMKG:", err);
+        badgeEl.classList.add('error');
+        badgeTextEl.innerText = 'Koneksi Terganggu';
+    });
+    </script>
+</body>
+</html>
