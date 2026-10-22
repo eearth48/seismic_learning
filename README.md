@@ -47,4 +47,4 @@ Aplikasi WebGIS interaktif berbasis Leaflet.js untuk memvisualisasikan data kege
 
 1. Salin repositori ini:
    ```bash
-   git clone [https://github.com/marseventz48/seismic_learning.git](https://github.com/marseventz48/seismic_learning.git)
+   git clone [https://github.com/eearth48/seismic_learning.git](https://github.com/eearth48/seismic_learning.git)
